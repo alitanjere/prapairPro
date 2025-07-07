@@ -4,6 +4,8 @@ import { CategoryCard } from './components/CategoryCard';
 import { QuestionCard } from './components/QuestionCard';
 import { Results } from './components/Results';
 import { Statistics } from './components/Statistics';
+import { DocumentUploader } from './components/DocumentUploader';
+import { OllamaStatus } from './components/OllamaStatus';
 import { categories, questions } from './data/questions';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { AppState, UserProgress, Question } from './types';
@@ -250,6 +252,11 @@ function App() {
                   <span>Soft Skills + Técnicas</span>
                 </div>
               </div>
+              
+              {/* Status de Ollama */}
+              <div className="mt-4 flex justify-center">
+                <OllamaStatus />
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -323,9 +330,15 @@ function App() {
         )}
 
         {appState.currentView === 'settings' && (
-          <div className="max-w-2xl mx-auto">
+          <div className="max-w-4xl mx-auto space-y-8">
             <div className="bg-white rounded-lg border border-gray-200 p-8">
               <h1 className="text-2xl font-bold text-gray-900 mb-6">Configuración</h1>
+              
+              {/* Sección de documentos RAG */}
+              <div className="mb-8">
+                <DocumentUploader />
+              </div>
+              
               <div className="space-y-6">
                 <div>
                   <h3 className="text-lg font-medium text-gray-900 mb-2">Gestión de Datos</h3>
@@ -357,7 +370,7 @@ function App() {
                     Versión 2.0.0 - Construido para la preparación de entrevistas técnicas
                   </p>
                   <p className="text-sm text-gray-500">
-                    Incluye evaluación con IA, preguntas comportamentales, y feedback personalizado
+                    Incluye evaluación con IA, preguntas comportamentales, feedback personalizado y sistema RAG
                   </p>
                 </div>
               </div>

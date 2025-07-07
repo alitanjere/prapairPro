@@ -1,8 +1,11 @@
-// RAG Service para proporcionar contexto relevante a las evaluaciones
+import { pdfProcessor } from './pdfProcessor';
+
+// RAG Service mejorado con integración de PDFs
 export interface RAGContext {
   relevantInfo: string;
   sources: string[];
   confidence: number;
+  documentSources: string[];
 }
 
 class RAGService {
@@ -90,30 +93,65 @@ class RAGService {
     ]
   };
 
-  getRelevantContext(category: string, questionTitle: string): RAGContext {
+  getRelevantContext(question: any, answer: string): RAGContext {
+    const category = question.category;
+    const questionTitle = question.title;
+    
+    // 1. Obtener contexto de la base de conocimiento estática
     const categoryKnowledge = this.knowledgeBase[category] || [];
     const generalTips = this.interviewTips['general'] || [];
     const categoryTips = this.interviewTips[category] || [];
 
-    // Buscar información relevante basada en palabras clave del título
+    // 2. Buscar en documentos PDF cargados
+    const pdfContent = this.searchPDFContent(questionTitle, category);
+    
+    // 3. Buscar información relevante basada en palabras clave
     const keywords = questionTitle.toLowerCase().split(' ');
     const relevantInfo = categoryKnowledge.filter(info => 
       keywords.some(keyword => info.toLowerCase().includes(keyword))
     );
 
-    // Combinar información relevante
+    // 4. Combinar toda la información relevante
     const contextParts = [
-      ...relevantInfo.slice(0, 3), // Top 3 más relevantes
-      ...categoryKnowledge.slice(0, 2), // 2 generales de la categoría
+      ...pdfContent.content, // Contenido de PDFs (prioridad alta)
+      ...relevantInfo.slice(0, 2), // Top 2 más relevantes de knowledge base
+      ...categoryKnowledge.slice(0, 1), // 1 general de la categoría
       ...categoryTips.slice(0, 2), // 2 tips específicos
       ...generalTips.slice(0, 1) // 1 tip general
     ];
 
+    const sources = [
+      'Knowledge Base',
+      'Interview Best Practices',
+      ...pdfContent.sources
+    ];
+
     return {
       relevantInfo: contextParts.join('\n'),
-      sources: ['Knowledge Base', 'Interview Best Practices'],
-      confidence: relevantInfo.length > 0 ? 0.8 : 0.6
+      sources: sources,
+      confidence: pdfContent.content.length > 0 ? 0.9 : (relevantInfo.length > 0 ? 0.8 : 0.6),
+      documentSources: pdfContent.sources
     };
+  }
+
+  private searchPDFContent(query: string, category: string): { content: string[], sources: string[] } {
+    try {
+      // Buscar contenido relevante en los PDFs cargados
+      const relevantChunks = pdfProcessor.searchRelevantContent(query, category);
+      const documents = pdfProcessor.getDocuments();
+      
+      const sources = documents
+        .filter(doc => doc.category === category || doc.category === 'interview-guide')
+        .map(doc => doc.title);
+
+      return {
+        content: relevantChunks,
+        sources: sources
+      };
+    } catch (error) {
+      console.error('Error buscando en PDFs:', error);
+      return { content: [], sources: [] };
+    }
   }
 
   // Método para agregar nuevo conocimiento al RAG
@@ -127,10 +165,31 @@ class RAGService {
   // Método para obtener estadísticas del knowledge base
   getKnowledgeStats(): Record<string, number> {
     const stats: Record<string, number> = {};
+    
+    // Stats de knowledge base estático
     Object.keys(this.knowledgeBase).forEach(category => {
       stats[category] = this.knowledgeBase[category].length;
     });
+    
+    // Stats de documentos PDF
+    const documents = pdfProcessor.getDocuments();
+    stats['pdf_documents'] = documents.length;
+    stats['pdf_chunks'] = documents.reduce((total, doc) => total + doc.chunks.length, 0);
+    
     return stats;
+  }
+
+  // Obtener información sobre documentos cargados
+  getDocumentInfo(): { count: number, totalChunks: number, categories: string[] } {
+    const documents = pdfProcessor.getDocuments();
+    const categories = [...new Set(documents.map(doc => doc.category || 'general'))];
+    const totalChunks = documents.reduce((total, doc) => total + doc.chunks.length, 0);
+    
+    return {
+      count: documents.length,
+      totalChunks,
+      categories
+    };
   }
 }
 
