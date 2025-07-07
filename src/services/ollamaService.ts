@@ -10,7 +10,7 @@ interface OllamaRequest {
   options?: {
     temperature?: number;
     top_p?: number;
-    max_tokens?: number;
+    num_predict?: number;
   };
 }
 
@@ -21,6 +21,7 @@ class OllamaService {
 
   async checkConnection(): Promise<boolean> {
     try {
+      console.log('🔍 Verificando conexión con Ollama...');
       const response = await fetch(`${this.baseUrl}/api/tags`, {
         method: 'GET',
         headers: {
@@ -32,6 +33,8 @@ class OllamaService {
         this.isConnected = true;
         console.log('✅ Ollama conectado correctamente');
         return true;
+      } else {
+        console.log('❌ Ollama respondió con error:', response.status);
       }
     } catch (error) {
       console.log('❌ Ollama no está disponible:', error);
@@ -45,7 +48,9 @@ class OllamaService {
       const response = await fetch(`${this.baseUrl}/api/tags`);
       if (response.ok) {
         const data = await response.json();
-        return data.models?.map((model: any) => model.name) || [];
+        const models = data.models?.map((model: any) => model.name) || [];
+        console.log('📋 Modelos disponibles:', models);
+        return models;
       }
     } catch (error) {
       console.error('Error obteniendo modelos:', error);
@@ -57,16 +62,18 @@ class OllamaService {
     const modelToUse = model || this.defaultModel;
     
     try {
-      console.log('🤖 Enviando prompt a Ollama:', prompt.substring(0, 100) + '...');
+      console.log('🤖 Enviando prompt a Ollama...');
+      console.log('📝 Modelo:', modelToUse);
+      console.log('📄 Prompt (primeros 200 chars):', prompt.substring(0, 200) + '...');
       
       const request: OllamaRequest = {
         model: modelToUse,
         prompt: prompt,
         stream: false,
         options: {
-          temperature: 0.7,
+          temperature: 0.3, // Más determinístico para evaluaciones
           top_p: 0.9,
-          max_tokens: 1000
+          num_predict: 800 // Limitar tokens para respuestas más concisas
         }
       };
 
@@ -84,6 +91,8 @@ class OllamaService {
 
       const data: OllamaResponse = await response.json();
       console.log('✅ Respuesta recibida de Ollama');
+      console.log('📄 Respuesta (primeros 300 chars):', data.response.substring(0, 300) + '...');
+      
       return data.response;
     } catch (error) {
       console.error('❌ Error llamando a Ollama:', error);
@@ -97,6 +106,11 @@ class OllamaService {
 
   setModel(model: string): void {
     this.defaultModel = model;
+    console.log('🔄 Modelo cambiado a:', model);
+  }
+
+  getCurrentModel(): string {
+    return this.defaultModel;
   }
 }
 
